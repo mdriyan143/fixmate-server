@@ -4,7 +4,16 @@ import { connectDB, col } from "./config/db.js";
 // the client (BetterAuth) must be running at AUTH_URL, because users are created through it
 const AUTH = process.env.AUTH_URL;
 const PASSWORD = "Fixmate123";
-const img = (text) => `https://placehold.co/800x500/9CAF88/2B2D31/png?text=${encodeURIComponent(text)}`;
+const images = {
+  "Smartphone": "/services/smartphone.svg",
+  "Laptop & PC": "/services/laptop.svg",
+  "AC": "/services/ac.svg",
+  "Refrigerator": "/services/refrigerator.svg",
+  "TV": "/services/tv.svg",
+  "Washing Machine": "/services/washing-machine.svg",
+  "Electrical": "/services/electrical.svg",
+};
+const img = (category) => images[category];;
 
 const people = [
   { name: "FixMate Admin", email: "admin@fixmate.com", role: "admin", area: "Dhaka", bio: "Platform admin" },
