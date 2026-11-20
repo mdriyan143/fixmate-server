@@ -6,9 +6,11 @@ import services from "./routes/services.js";
 import bookings from "./routes/bookings.js";
 import checkout from "./routes/checkout.js";
 import payments from "./routes/payments.js";
+import webhook from "./routes/webhook.js";
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL.split(","), credentials: true }));
+app.post("/api/payments/webhook", express.raw({ type: "application/json" }), webhook);
 app.use(express.json());
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
