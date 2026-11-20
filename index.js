@@ -8,6 +8,7 @@ import checkout from "./routes/checkout.js";
 import payments from "./routes/payments.js";
 import webhook from "./routes/webhook.js";
 import technicianServices from "./routes/technicianServices.js";
+import jobs from "./routes/jobs.js";
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL.split(","), credentials: true }));
@@ -22,6 +23,7 @@ app.use("/api/services", services);
 app.use("/api/bookings", bookings);
 app.use("/api/payments", checkout);
 app.use("/api/payments", payments);
+app.use("/api/bookings", jobs);
 
 const port = process.env.PORT || 5000;
 connectDB().then(() => app.listen(port, () => console.log(`Server running on port ${port}`)));
