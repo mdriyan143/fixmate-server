@@ -7,6 +7,7 @@ import bookings from "./routes/bookings.js";
 import checkout from "./routes/checkout.js";
 import payments from "./routes/payments.js";
 import webhook from "./routes/webhook.js";
+import technicianServices from "./routes/technicianServices.js";
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL.split(","), credentials: true }));
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
 
+app.use("/api/services", technicianServices); 
 
 app.use("/api/services", services);
 app.use("/api/bookings", bookings);
