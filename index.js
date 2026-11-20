@@ -10,6 +10,8 @@ import webhook from "./routes/webhook.js";
 import technicianServices from "./routes/technicianServices.js";
 import jobs from "./routes/jobs.js";
 import users from "./routes/users.js";
+import admin from "./routes/admin.js";
+
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL.split(","), credentials: true }));
@@ -26,6 +28,11 @@ app.use("/api/payments", checkout);
 app.use("/api/payments", payments);
 app.use("/api/bookings", jobs);
 app.use("/api/users", users);
+
+
+
+app.use("/api/admin", admin);
+app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 
 const port = process.env.PORT || 5000;
 connectDB().then(() => app.listen(port, () => console.log(`Server running on port ${port}`)));
