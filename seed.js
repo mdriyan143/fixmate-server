@@ -80,6 +80,31 @@ const services = list.map(([title, category, basePrice, estimatedDuration, servi
 }));
 const { insertedIds } = await col("services").insertMany(services);
 
+// 3 services that are NOT public yet: two wait for approval, one was rejected
+// (so the admin approval page has real work to do)
+const hidden = [
+  ["Gaming Laptop Cooling Repair", "Laptop & PC", 45, "1 day", "Shop Drop-off", 1, "pending"],
+  ["Microwave Oven Repair", "Electrical", 30, "3 hours", "Home Visit", 2, "pending"],
+  ["Old CRT TV Repair", "TV", 15, "2 days", "Shop Drop-off", 1, "rejected"],
+];
+await col("services").insertMany(
+  hidden.map(([title, category, basePrice, estimatedDuration, serviceMode, t, approvalStatus], i) => ({
+    title,
+    category,
+    description: `${title} by a verified technician. Quick diagnosis and honest pricing.`,
+    image: img(category),
+    basePrice,
+    estimatedDuration,
+    serviceMode,
+    serviceArea: people[t].area,
+    technicianName: people[t].name,
+    technicianEmail: people[t].email,
+    approvalStatus,
+    isAvailable: true,
+    createdAt: new Date(Date.now() - (20 + i) * 3600 * 1000), // older than the 14 public ones
+  }))
+);
+
 // a few bookings in different statuses for the demo customer
 const customer = people[3];
 
@@ -127,7 +152,14 @@ const bookings = [
   make(2, "in-progress"),
   make(6, "completed", { finalAmount: 65 }),
   make(8, "rejected"),
-  make(10, "completed", { finalAmount: 50, paymentStatus: "paid" }),
+  make(10, "completed", {
+  finalAmount: 50,
+  paymentStatus: "paid",
+  rating: 5,
+  review: "Quick and honest repair. My washing machine works like new.",
+  reviewedAt: new Date(),
+}),
+
   make(12, "cancelled"),
 ];
 const done = await col("bookings").insertMany(bookings);
