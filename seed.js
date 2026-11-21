@@ -1,19 +1,25 @@
 import "dotenv/config";
 import { connectDB, col } from "./config/db.js";
 
+// safety: this file deletes all services, bookings and payments
+if (process.env.NODE_ENV === "production" && !process.argv.includes("--force")) {
+  console.log("This deletes all data. Run: node seed.js --force");
+  process.exit(1);
+}
+
 // the client (BetterAuth) must be running at AUTH_URL, because users are created through it
 const AUTH = process.env.AUTH_URL;
 const PASSWORD = "Fixmate123";
 const images = {
-  "Smartphone": "/services/smartphone.svg",
-  "Laptop & PC": "/services/laptop.svg",
-  "AC": "/services/ac.svg",
-  "Refrigerator": "/services/refrigerator.svg",
-  "TV": "/services/tv.svg",
-  "Washing Machine": "/services/washing-machine.svg",
-  "Electrical": "/services/electrical.svg",
+  "Smartphone": "https://i.ibb.co.com/1J88BjfN/pexels-fotografia-lui-vlad-1445510816-31862950.jpg",
+  "Laptop & PC": "https://i.ibb.co.com/9HShhJ4p/pexels-elias-gamez-2002621-10558599.jpg",
+  "AC": "https://i.ibb.co.com/VYmPL0YY/pexels-jose-andres-pacheco-cortes-3641213-5463581.jpg",
+  "Refrigerator": "https://i.ibb.co.com/jkHZygfM/pexels-bulat843-1243575272-32391499.jpg",
+  "TV": "https://i.ibb.co.com/QFbdN3nw/pexels-bulat843-1243575272-34132693.jpg",
+  "Washing Machine": "https://i.ibb.co.com/5hH6g7ny/ambitious-studio-rick-barrett-7-Yw-8zv-Kz-A8-unsplash.jpg",
+  "Electrical": "https://i.ibb.co.com/XfnnCSKY/pexels-fatihyurtman-17842843.jpg",
 };
-const img = (category) => images[category];;
+const img = (category) => images[category];
 
 const people = [
   { name: "FixMate Admin", email: "admin@fixmate.com", role: "admin", area: "Dhaka", bio: "Platform admin" },
