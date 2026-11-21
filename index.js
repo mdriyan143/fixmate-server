@@ -35,8 +35,13 @@ app.use(async (req, res, next) => {
 
 app.post("/api/payments/webhook", express.raw({ type: "application/json" }), webhook);
 app.use(express.json({ limit: "100kb" }));
-// at most 300 requests per visitor every 15 minutes (the Stripe webhook is above, so it is not limited)
-app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
+
+app.use("/api", rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
 
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
