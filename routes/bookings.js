@@ -90,4 +90,26 @@ router.patch("/:id/cancel", guard, async (req, res) => {
   res.json({ message: "Booking cancelled" });
 });
 
+// PATCH /api/bookings/:id/review   (own PAID booking, only once)
+router.patch("/:id/review", guard, async (req, res) => {
+  const { id } = req.params;
+  const rating = Number(req.body.rating);
+  const review = String(req.body.review || "").trim();
+
+  if (!ObjectId.isValid(id)) return res.status(404).json({ message: "Booking not found" });
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: "Rating must be from 1 to 5" });
+  }
+
+  // the filter checks everything: my booking, already paid, and no rating yet
+  const result = await col("bookings").updateOne(
+    { _id: new ObjectId(id), customerEmail: req.user.email, paymentStatus: "paid", rating: { $exists: false } },
+    { $set: { rating, review, reviewedAt: new Date() } }
+  );
+  if (!result.matchedCount) {
+    return res.status(400).json({ message: "Only your own paid booking can be reviewed, once" });
+  }
+  res.json({ message: "Thanks for your review" });
+});
+
 export default router;

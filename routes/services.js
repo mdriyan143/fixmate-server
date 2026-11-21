@@ -9,6 +9,26 @@ const sorts = {
   newest: { createdAt: -1 },
 };
 
+// adds avgRating and reviewCount to each service in the list
+async function withRatings(list) {
+  const ids = list.map((s) => String(s._id));
+
+  // groups all rated bookings by service and calculates the average
+  const stats = await col("bookings")
+    .aggregate([
+      { $match: { serviceId: { $in: ids }, rating: { $exists: true } } },
+      { $group: { _id: "$serviceId", avg: { $avg: "$rating" }, count: { $sum: 1 } } },
+    ])
+    .toArray();
+
+  const byService = Object.fromEntries(stats.map((x) => [x._id, x]));
+  return list.map((s) => ({
+    ...s,
+    avgRating: byService[String(s._id)]?.avg ?? 0,
+    reviewCount: byService[String(s._id)]?.count ?? 0,
+  }));
+}
+
 // GET /api/services?search=&category=&mode=&sort=&limit=&page=   (public)
 router.get("/", async (req, res) => {
   const { search, category, mode, sort, limit, page } = req.query;
@@ -29,13 +49,13 @@ router.get("/", async (req, res) => {
     const perPage = 8;
     const pageNo = Math.max(parseInt(page) || 1, 1);
     const total = await col("services").countDocuments(query);
-    const items = await cursor.skip((pageNo - 1) * perPage).limit(perPage).toArray();
+    const items = await withRatings(await cursor.skip((pageNo - 1) * perPage).limit(perPage).toArray());
     return res.json({ items, total, pages: Math.ceil(total / perPage) });
   }
 
   // plain list, used by the home page (?limit=6)
   if (Number(limit) > 0) cursor = cursor.limit(Number(limit));
-  res.json(await cursor.toArray());
+  res.json(await withRatings(await cursor.toArray()));
 });
 
 // GET /api/services/:id   (public, only approved + available)
@@ -54,7 +74,8 @@ router.get("/:id", async (req, res) => {
     { email: service.technicianEmail },
     { projection: { name: 1, image: 1, area: 1, bio: 1 } }
   );
-  res.json({ ...service, technician });
+  const [rated] = await withRatings([service]);
+  res.json({ ...rated, technician });
 });
 
 export default router;
