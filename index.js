@@ -12,10 +12,15 @@ import technicianServices from "./routes/technicianServices.js";
 import jobs from "./routes/jobs.js";
 import users from "./routes/users.js";
 import admin from "./routes/admin.js";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+
 
 if (CLIENT_ORIGINS.length === 0) console.warn("WARNING: CLIENT_URL is empty, browsers will get CORS errors");
 
 const app = express();
+app.set("trust proxy", 1); // hosts like Render put a proxy in front of the server
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: CLIENT_ORIGINS, credentials: true }));
 
 // make sure MongoDB is connected before any route runs (also needed on serverless hosts)
@@ -30,6 +35,9 @@ app.use(async (req, res, next) => {
 
 app.post("/api/payments/webhook", express.raw({ type: "application/json" }), webhook);
 app.use(express.json({ limit: "100kb" }));
+// at most 300 requests per visitor every 15 minutes (the Stripe webhook is above, so it is not limited)
+app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
+
 
 app.get("/", (req, res) => res.send("FixMate server is running"));
 
