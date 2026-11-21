@@ -59,6 +59,7 @@ router.post("/", guard, async (req, res) => {
     status: "requested",
     finalAmount: service.basePrice,
     paymentStatus: "unpaid",
+    statusHistory: [{ status: "requested", changedAt: new Date() }],
     createdAt: new Date(),
   };
   const result = await col("bookings").insertOne(booking);
@@ -78,7 +79,10 @@ router.patch("/:id/cancel", guard, async (req, res) => {
 
   const result = await col("bookings").updateOne(
     { _id: new ObjectId(id), customerEmail: req.user.email, status: "requested" },
-    { $set: { status: "cancelled" } }
+    {
+      $set: { status: "cancelled" },
+      $push: { statusHistory: { status: "cancelled", changedAt: new Date() } },
+    }
   );
   if (!result.matchedCount) {
     return res.status(400).json({ message: "Only your own requested bookings can be cancelled" });

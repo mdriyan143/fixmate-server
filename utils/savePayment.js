@@ -32,6 +32,14 @@ export async function savePayment(session) {
   } catch (err) {
     if (err.code !== 11000) throw err; // 11000 = duplicate, the unique index did its job
   }
-  await col("bookings").updateOne({ _id: booking._id }, { $set: { paymentStatus: "paid" } });
+
+  // "unpaid" is in the filter, so "paid" is added to the history only the first time
+  await col("bookings").updateOne(
+    { _id: booking._id, paymentStatus: "unpaid" },
+    {
+      $set: { paymentStatus: "paid" },
+      $push: { statusHistory: { status: "paid", changedAt: new Date() } },
+    }
+  );
   return col("payments").findOne({ stripeSessionId: session.id });
 }

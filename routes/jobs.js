@@ -43,7 +43,11 @@ router.patch("/:id/status", guard, async (req, res) => {
   }
 
   // the filter includes the old status, so two quick clicks cannot both succeed
-  const result = await col("bookings").updateOne({ _id: booking._id, status: booking.status }, { $set: set });
+  // $push adds the new status and the time to the history list
+  const result = await col("bookings").updateOne(
+    { _id: booking._id, status: booking.status },
+    { $set: set, $push: { statusHistory: { status, changedAt: new Date() } } }
+  );
   if (!result.matchedCount) return res.status(409).json({ message: "Status was already changed" });
   res.json({ message: "Status updated" });
 });
