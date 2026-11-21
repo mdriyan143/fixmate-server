@@ -10,17 +10,20 @@ const guard = [verifyToken, verifyCustomer];
 // POST /api/bookings   (customer sends a repair request)
 router.post("/", guard, async (req, res) => {
   const { serviceId, customerPhone, address, preferredDate, problemDescription } = req.body;
+  const phone = String(customerPhone || "").trim();
+  const place = String(address || "").trim();
+  const problem = String(problemDescription || "").trim();
   const date = new Date(preferredDate);
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
   if (
     !ObjectId.isValid(serviceId) ||
-    !String(customerPhone || "").trim() ||
-    !String(address || "").trim() ||
+    !phone || phone.length > 20 ||
+    !place || place.length > 200 ||
     isNaN(date) ||
     date < today ||
-    String(problemDescription || "").trim().length < 20
+    problem.length < 20 || problem.length > 1000
   ) {
     return res.status(400).json({ message: "Please fill the form correctly (problem needs 20+ characters)" });
   }
@@ -52,17 +55,27 @@ router.post("/", guard, async (req, res) => {
     technicianEmail: service.technicianEmail,
     customerName: req.user.name,
     customerEmail: req.user.email,
-    customerPhone: String(customerPhone).trim(),
-    address: String(address).trim(),
+    customerPhone: phone,
+    address: place,
     preferredDate: date,
-    problemDescription: String(problemDescription).trim(),
+    problemDescription: problem,
     status: "requested",
     finalAmount: service.basePrice,
     paymentStatus: "unpaid",
     statusHistory: [{ status: "requested", changedAt: new Date() }],
     createdAt: new Date(),
   };
-  const result = await col("bookings").insertOne(booking);
+
+  let result;
+  try {
+    result = await col("bookings").insertOne(booking);
+  } catch (err) {
+    // 11000 = the database found a second active request (two quick clicks)
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "You already have an active request for this service" });
+    }
+    throw err;
+  }
   res.status(201).json({ ...booking, _id: result.insertedId });
 });
 
@@ -100,6 +113,7 @@ router.patch("/:id/review", guard, async (req, res) => {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return res.status(400).json({ message: "Rating must be from 1 to 5" });
   }
+  if (review.length > 500) return res.status(400).json({ message: "Review is too long (max 500 characters)" });
 
   // the filter checks everything: my booking, already paid, and no rating yet
   const result = await col("bookings").updateOne(
