@@ -41,5 +41,5 @@ export async function savePayment(session) {
       $push: { statusHistory: { status: "paid", changedAt: new Date() } },
     }
   );
-  return col("payments").findOne({ stripeSessionId: session.id });
+ return col("payments").findOne({ bookingId: String(booking._id) });
 }
