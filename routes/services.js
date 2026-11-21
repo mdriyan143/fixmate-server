@@ -9,6 +9,9 @@ const sorts = {
   newest: { createdAt: -1 },
 };
 
+// public pages must never receive the technician's email
+const hideEmail = { projection: { technicianEmail: 0 } };
+
 // adds avgRating and reviewCount to each service in the list
 async function withRatings(list) {
   const ids = list.map((s) => String(s._id));
@@ -42,7 +45,7 @@ router.get("/", async (req, res) => {
     query.$or = [{ title: rx }, { category: rx }];
   }
 
-  let cursor = col("services").find(query).sort(sorts[sort] || sorts.newest);
+  let cursor = col("services").find(query, hideEmail).sort(sorts[sort] || sorts.newest);
 
   // paged list, used by /services:  ?page=1, ?page=2 ...
   if (page) {
@@ -74,7 +77,9 @@ router.get("/:id", async (req, res) => {
     { email: service.technicianEmail },
     { projection: { name: 1, image: 1, area: 1, bio: 1 } }
   );
-  const [rated] = await withRatings([service]);
+  // the email was needed above to find the technician, but it is removed before we answer
+  const { technicianEmail, ...publicService } = service;
+  const [rated] = await withRatings([publicService]);
   res.json({ ...rated, technician });
 });
 
