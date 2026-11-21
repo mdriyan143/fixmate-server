@@ -9,9 +9,9 @@ const sorts = {
   newest: { createdAt: -1 },
 };
 
-// GET /api/services?search=&category=&mode=&sort=&limit=   (public)
+// GET /api/services?search=&category=&mode=&sort=&limit=&page=   (public)
 router.get("/", async (req, res) => {
-  const { search, category, mode, sort, limit } = req.query;
+  const { search, category, mode, sort, limit, page } = req.query;
   const query = { approvalStatus: "approved", isAvailable: true };
 
   if (category) query.category = String(category);
@@ -23,6 +23,17 @@ router.get("/", async (req, res) => {
   }
 
   let cursor = col("services").find(query).sort(sorts[sort] || sorts.newest);
+
+  // paged list, used by /services:  ?page=1, ?page=2 ...
+  if (page) {
+    const perPage = 8;
+    const pageNo = Math.max(parseInt(page) || 1, 1);
+    const total = await col("services").countDocuments(query);
+    const items = await cursor.skip((pageNo - 1) * perPage).limit(perPage).toArray();
+    return res.json({ items, total, pages: Math.ceil(total / perPage) });
+  }
+
+  // plain list, used by the home page (?limit=6)
   if (Number(limit) > 0) cursor = cursor.limit(Number(limit));
   res.json(await cursor.toArray());
 });
