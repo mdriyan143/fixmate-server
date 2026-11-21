@@ -4,6 +4,8 @@ import { col } from "../config/db.js";
 import { stripe } from "../config/stripe.js";
 import { verifyToken, verifyCustomer } from "../middleware/auth.js";
 import { MAIN_CLIENT } from "../utils/urls.js";
+import { savePayment } from "../utils/savePayment.js";
+
 
 const router = Router();
 
@@ -22,6 +24,19 @@ router.post("/create-checkout-session", verifyToken, verifyCustomer, async (req,
     return res.status(400).json({ message: "Only completed and unpaid jobs can be paid" });
   }
 
+  if (booking.checkoutSessionId) {
+  try {
+    const old = await stripe.checkout.sessions.retrieve(booking.checkoutSessionId);
+    if (old.status === "open") return res.json({ url: old.url });
+    if (old.payment_status === "paid") {
+      await savePayment(old);
+      return res.status(400).json({ message: "This booking is already paid" });
+    }
+  } catch {
+    // old session not found, create a new one below
+  }
+}
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: booking.customerEmail,
@@ -39,6 +54,10 @@ router.post("/create-checkout-session", verifyToken, verifyCustomer, async (req,
     success_url: `${MAIN_CLIENT}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${MAIN_CLIENT}/payment/cancel`,
   });
+  await col("bookings").updateOne(
+  { _id: booking._id },
+  { $set: { checkoutSessionId: session.id } }
+);
   res.json({ url: session.url });
 });
 
