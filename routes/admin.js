@@ -9,7 +9,12 @@ router.use(verifyToken, verifyAdmin); // everything under /api/admin is admin-on
 const byStatus = (key) => (req) => (req.query.status ? { [key]: String(req.query.status) } : {});
 
 router.get("/users", async (req, res) => {
-  res.json(await col("users").find().sort({ createdAt: -1 }).toArray());
+  res.json(
+    await col("users")
+      .find({}, { projection: { name: 1, email: 1, image: 1, role: 1, createdAt: 1 } })
+      .sort({ createdAt: -1 })
+      .toArray()
+  );
 });
 
 router.patch("/users/:id/role", async (req, res) => {
