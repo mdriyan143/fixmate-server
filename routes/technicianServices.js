@@ -9,14 +9,21 @@ const guard = [verifyToken, verifyTechnician];
 const fields = [
   "title", "category", "description", "image", "estimatedDuration", "serviceMode", "serviceArea",
 ];
+// longest text allowed in each field
+const maxLength = {
+  title: 100, category: 50, description: 1000, image: 500,
+  estimatedDuration: 50, serviceMode: 30, serviceArea: 100,
+};
 
 // keep only allowed fields and validate them
 function clean(body) {
   const data = Object.fromEntries(fields.map((f) => [f, String(body[f] ?? "").trim()]));
   data.basePrice = Number(body.basePrice);
   const ok =
-    fields.every((f) => data[f]) &&
+    fields.every((f) => data[f] && data[f].length <= maxLength[f]) &&
+    /^https?:\/\//.test(data.image) && // the image must be a web link (ImgBB)
     data.basePrice > 0 &&
+    data.basePrice <= 100000 &&
     CATEGORIES.includes(data.category) &&
     MODES.includes(data.serviceMode);
   return ok ? data : null;
@@ -73,9 +80,13 @@ router.patch("/:id", guard, async (req, res) => {
 
 // PATCH /api/services/:id/availability
 router.patch("/:id/availability", guard, async (req, res) => {
+  // only a real true or false is accepted (the text "false" used to become true)
+  if (typeof req.body.isAvailable !== "boolean") {
+    return res.status(400).json({ message: "isAvailable must be true or false" });
+  }
   const service = await ownService(req, res);
   if (!service) return;
-  await col("services").updateOne({ _id: service._id }, { $set: { isAvailable: Boolean(req.body.isAvailable) } });
+  await col("services").updateOne({ _id: service._id }, { $set: { isAvailable: req.body.isAvailable } });
   res.json({ message: "Availability updated" });
 });
 
