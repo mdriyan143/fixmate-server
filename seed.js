@@ -2,8 +2,8 @@ import "dotenv/config";
 import { connectDB, col } from "./config/db.js";
 
 // safety: this file deletes all services, bookings and payments
-if (process.env.NODE_ENV === "production" && !process.argv.includes("--force")) {
-  console.log("This deletes all data. Run: node seed.js --force");
+if (!process.argv.includes("--force")) {
+  console.log("This deletes all services, bookings and payments. Run: node seed.js --force");
   process.exit(1);
 }
 
