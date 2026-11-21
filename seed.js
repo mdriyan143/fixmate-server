@@ -82,6 +82,21 @@ const { insertedIds } = await col("services").insertMany(services);
 
 // a few bookings in different statuses for the demo customer
 const customer = people[3];
+
+// statusHistory for the job timeline tracker
+const flowOrder = ["requested", "accepted", "in-progress", "completed"];
+const history = (status, paid) => {
+  const steps =
+    status === "rejected" || status === "cancelled"
+      ? ["requested", status]
+      : flowOrder.slice(0, flowOrder.indexOf(status) + 1);
+  if (paid) steps.push("paid");
+  return steps.map((s, i) => ({
+    status: s,
+    changedAt: new Date(Date.now() - (steps.length - i) * 3600 * 1000),
+  }));
+};
+
 const make = (i, status, extra = {}) => {
   const s = services[i];
   return {
@@ -101,6 +116,7 @@ const make = (i, status, extra = {}) => {
     status,
     finalAmount: s.basePrice,
     paymentStatus: "unpaid",
+    statusHistory: history(status, extra.paymentStatus === "paid"),
     createdAt: new Date(),
     ...extra,
   };
@@ -112,6 +128,7 @@ const bookings = [
   make(6, "completed", { finalAmount: 65 }),
   make(8, "rejected"),
   make(10, "completed", { finalAmount: 50, paymentStatus: "paid" }),
+  make(12, "cancelled"),
 ];
 const done = await col("bookings").insertMany(bookings);
 

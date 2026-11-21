@@ -6,8 +6,9 @@ let db;
 export async function connectDB() {
   await client.connect();
   db = client.db(process.env.DB_NAME);
-  // one payment per Stripe session, so the same payment can never be saved twice
+  // one payment per Stripe session, and one payment per booking
   await db.collection("payments").createIndex({ stripeSessionId: 1 }, { unique: true });
+  await db.collection("payments").createIndex({ bookingId: 1 }, { unique: true });
   console.log("MongoDB connected");
 }
 
