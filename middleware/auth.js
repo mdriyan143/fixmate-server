@@ -9,8 +9,14 @@ export async function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-    jwks ??= createRemoteJWKSet(new URL(`${process.env.AUTH_URL}/api/auth/jwks`));
-    const { payload } = await jwtVerify(token, jwks);
+    // same value as the client BETTER_AUTH_URL, without a "/" at the end
+    const base = String(process.env.AUTH_URL || "").replace(/\/+$/, "");
+
+    jwks ??= createRemoteJWKSet(new URL(`${base}/api/auth/jwks`));
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: base,
+      audience: base,
+    });
 
     const user = await col("users").findOne({ email: payload.email });
     if (!user) return res.status(401).json({ message: "Unauthorized" });
