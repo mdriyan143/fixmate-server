@@ -3,9 +3,9 @@ import { ObjectId } from "mongodb";
 import { col } from "../config/db.js";
 import { stripe } from "../config/stripe.js";
 import { verifyToken, verifyCustomer } from "../middleware/auth.js";
+import { MAIN_CLIENT } from "../utils/urls.js";
 
 const router = Router();
-const CLIENT = process.env.CLIENT_URL.split(",")[0];
 
 // POST /api/payments/create-checkout-session
 router.post("/create-checkout-session", verifyToken, verifyCustomer, async (req, res) => {
@@ -36,8 +36,8 @@ router.post("/create-checkout-session", verifyToken, verifyCustomer, async (req,
       },
     ],
     metadata: { bookingId: String(booking._id), customerEmail: booking.customerEmail },
-    success_url: `${CLIENT}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${CLIENT}/payment/cancel`,
+    success_url: `${MAIN_CLIENT}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${MAIN_CLIENT}/payment/cancel`,
   });
   res.json({ url: session.url });
 });
