@@ -6,9 +6,8 @@ The API supports three roles: Customer, Technician, and Admin. It manages repair
 
 ## Live API
 
-- **API base URL:** `[https://YOUR-BACKEND-DOMAIN](https://fixmate-server-pi.vercel.app/)`
+- **API base URL:** https://fixmate-server-pi.vercel.app
 
-> Replace the example URL above with your deployed backend URL before submission.
 
 ## Tech Stack
 
