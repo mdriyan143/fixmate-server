@@ -10,16 +10,33 @@ if (!process.argv.includes("--force")) {
 // the client (BetterAuth) must be running at AUTH_URL, because users are created through it
 const AUTH = process.env.AUTH_URL;
 const PASSWORD = "Fixmate123";
-const images = {
-  "Smartphone": "https://i.ibb.co.com/1J88BjfN/pexels-fotografia-lui-vlad-1445510816-31862950.jpg",
-  "Laptop & PC": "https://i.ibb.co.com/9HShhJ4p/pexels-elias-gamez-2002621-10558599.jpg",
-  "AC": "https://i.ibb.co.com/VYmPL0YY/pexels-jose-andres-pacheco-cortes-3641213-5463581.jpg",
-  "Refrigerator": "https://i.ibb.co.com/jkHZygfM/pexels-bulat843-1243575272-32391499.jpg",
-  "TV": "https://i.ibb.co.com/QFbdN3nw/pexels-bulat843-1243575272-34132693.jpg",
-  "Washing Machine": "https://i.ibb.co.com/5hH6g7ny/ambitious-studio-rick-barrett-7-Yw-8zv-Kz-A8-unsplash.jpg",
-  "Electrical": "https://i.ibb.co.com/XfnnCSKY/pexels-fatihyurtman-17842843.jpg",
-};
-const img = (category) => images[category];
+// Service photos live in the CLIENT project: public/images/<file>.jpg
+// The full client address is stored in the database, so every page and API can load them.
+const SITE = AUTH.replace(/\/+$/, "");
+// "svg" = the drawn illustrations. If you later use real photos, change this one word to "jpg".
+const EXT = "svg";
+const photo = (file) => `${SITE}/images/${file}.${EXT}`;
+
+// ONE PHOTO PER SERVICE, same order as the list below
+const serviceImages = [
+  photo("iphone-screen-replacement"), // 1. iPhone Screen Replacement
+  photo("android-battery-replacement"), // 2. Android Battery Replacement
+  photo("laptop-full-servicing"), // 3. Laptop Full Servicing
+  photo("laptop-screen-repair"), // 4. Laptop Screen Repair
+  photo("ac-gas-refill-cleaning"), // 5. AC Gas Refill & Cleaning
+  photo("split-ac-installation"), // 6. Split AC Installation
+  photo("refrigerator-compressor-repair"), // 7. Refrigerator Compressor Repair
+  photo("fridge-not-cooling-fix"), // 8. Fridge Not Cooling Fix
+  photo("led-tv-panel-repair"), // 9. LED TV Panel Repair
+  photo("smart-tv-software-fix"), // 10. Smart TV Software Fix
+  photo("washing-machine-motor-repair"), // 11. Washing Machine Motor Repair
+  photo("washing-machine-drain-fix"), // 12. Washing Machine Drain Fix
+  photo("house-electrical-wiring"), // 13. House Electrical Wiring
+  photo("circuit-breaker-replacement"), // 14. Circuit Breaker Replacement
+];
+
+// the 3 hidden services reuse a similar photo
+const hiddenImages = [photo("laptop-full-servicing"), photo("house-electrical-wiring"), photo("led-tv-panel-repair")];
 
 const people = [
   { name: "FixMate Admin", email: "admin@fixmate.com", role: "admin", area: "Dhaka", bio: "Platform admin" },
@@ -67,7 +84,7 @@ const services = list.map(([title, category, basePrice, estimatedDuration, servi
   title,
   category,
   description: `${title} by a verified technician. Genuine parts, quick diagnosis and a tested device before delivery.`,
-  image: img(category),
+  image: serviceImages[i],
   basePrice,
   estimatedDuration,
   serviceMode,
@@ -92,7 +109,7 @@ await col("services").insertMany(
     title,
     category,
     description: `${title} by a verified technician. Quick diagnosis and honest pricing.`,
-    image: img(category),
+    image: hiddenImages[i],
     basePrice,
     estimatedDuration,
     serviceMode,
