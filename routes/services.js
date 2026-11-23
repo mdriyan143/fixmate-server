@@ -83,4 +83,21 @@ router.get("/:id", async (req, res) => {
   res.json({ ...rated, technician });
 });
 
+// GET /api/services/:id/reviews   (public, newest first)
+router.get("/:id/reviews", async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) return res.json([]);
+
+  const list = await col("bookings")
+    .find(
+      { serviceId: id, rating: { $exists: true } },
+      { projection: { customerName: 1, rating: 1, review: 1, reviewedAt: 1 } }
+    )
+    .sort({ reviewedAt: -1 })
+    .limit(20)
+    .toArray();
+
+  res.json(list);
+});
+
 export default router;
