@@ -1,215 +1,175 @@
-# FixMate — Server
+# FixMate Server
 
-FixMate is a full-stack, role-based device and home-appliance repair booking platform. This repository contains the **Node.js / Express REST API** and MongoDB data operations used by the FixMate Next.js client.
+## Purpose
+REST API for FixMate, a repair service booking platform. It handles services, bookings, job status rules, Stripe payments, profiles and admin operations, with JWT and role-based access.
 
-The API supports three roles: Customer, Technician, and Admin. It manages repair services, bookings, job status transitions, Stripe payments, user profiles, and administrator operations.
+This is the **server** (Express and MongoDB). The frontend is in the client repo.
 
-## Live API
+## Live URL and Repositories
+| | |
+|---|---|
+| Live API | https://fixmate-server-pi.vercel.app |
+| Live site | https://fixmate-client-mdriyan143.vercel.app |
+| Server repo | https://github.com/mdriyan143/fixmate-server |
+| Client repo | https://github.com/mdriyan143/fixmate-client |
 
-- **API base URL:** https://fixmate-server-pi.vercel.app
+## Credentials
+Password for all accounts: `Fixmate123`
 
+| Role | Email |
+|---|---|
+| Admin | admin@fixmate.com |
+| Technician | rafiq@fixmate.com |
+| Technician | sabbir@fixmate.com |
+| Customer | customer@fixmate.com |
 
-## Tech Stack
+## Key Features
+- JWT verification (BetterAuth JWKS) with `verifyToken`, `verifyCustomer`, `verifyTechnician`, `verifyAdmin`
+- 401 for a missing or bad token, 403 for the wrong role, users only reach their own data
+- Public approved services with server-side search, filter, sort and pagination
+- Repair requests with duplicate active request protection (code check plus unique index)
+- Job status pipeline enforced on the server
+- Technician service CRUD and availability switch
+- Admin: users and roles, service approval, all bookings, transactions
+- Stripe Checkout (amount read from the database), verify route and webhook, no double payments
+- Ratings and reviews on paid bookings, status history on every booking
+- Helmet, rate limiting, CORS allowlist, JSON error handler
+- Seed script with demo data
 
-- Node.js (ES modules)
-- Express 5
-- MongoDB Node.js driver
-- BetterAuth-issued JWT verification with `jose`
-- Stripe Checkout and Webhooks
-- CORS
-- Helmet
-- express-rate-limit
-- dotenv
-- nodemon (development)
-
-## Core Features
-
-- MongoDB connection and collection access.
-- Public listing of approved and available services.
-- Server-side service search, category/service-mode filtering, sorting, and pagination.
-- Role-based API authorization with `verifyToken`, `verifyCustomer`, `verifyTechnician`, and `verifyAdmin`.
-- Customer repair requests, duplicate-active-request prevention, and request cancellation.
-- Technician-owned service CRUD and availability management.
-- Technician-only booking access and server-enforced job status transitions.
-- Admin user/role management, service approval, booking monitoring, and transaction listing.
-- Stripe Checkout for completed and unpaid bookings.
-- Payment verification and Stripe webhook handling.
-- Idempotent payment persistence to prevent the same booking payment from being recorded twice.
-- Customer ratings and reviews for paid bookings.
-- Profile updates.
-- Seed script for demo users, services, and bookings.
-
-## Database Collections
-
-The application uses these four application collections:
-
+## Database (4 collections)
 | Collection | Purpose |
 |---|---|
-| `users` | BetterAuth user records with role and profile fields |
-| `services` | Technician repair service listings and approval state |
-| `bookings` | Customer repair requests, job status, payment status, ratings, and timeline |
-| `payments` | Successful Stripe payment records |
+| users | BetterAuth users with role, phone, area, bio |
+| services | Technician services and approval status |
+| bookings | Repair requests, status, payment status, review, history |
+| payments | Paid Stripe payments (unique per booking and per Stripe session) |
 
-BetterAuth also creates and manages its own authentication-related collections (such as sessions, accounts, and verifications).
-
-## Authentication and Access Control
-
-The API verifies JWTs issued by BetterAuth using the BetterAuth JWKS endpoint. The user's role is read from MongoDB for authorization.
-
-- Missing or invalid token: `401 Unauthorized`
-- Valid token with an incorrect role: `403 Forbidden`
-- Customers can access only their own bookings and payments.
-- Technicians can access and update only bookings and services they own.
-- Admin endpoints require the Admin role.
-- Public service browsing and service details do not require authentication.
-
-## Job Status Workflow
-
-Allowed job transitions are enforced by the server:
-
+## Job Status Rules
 ```text
-requested ── Technician ──> accepted
-    │                         │
-    ├── Technician ──> rejected
-    └── Customer ────> cancelled
-                              │
-                         in-progress
-                              │
-                          completed
-                              │
-                   Customer pays with Stripe
-                              │
-                            paid
+requested -> accepted -> in-progress -> completed -> paid (Stripe)
+requested -> rejected   (technician)
+requested -> cancelled  (customer)
 ```
-
-A technician must own the booking to update its status. A final amount greater than zero is required when marking a job completed. Customers can cancel only their own requested bookings. Payment is permitted only for a booking owned by the logged-in customer when it is completed and unpaid.
+Only the owning technician can change a job. `finalAmount` must be above 0 when completing. Customers can pay only their own booking that is completed and unpaid.
 
 ## API Routes
-
-All routes are prefixed with `/api`, except the root health check and Stripe webhook path noted below.
-
-| Method | Endpoint | Access / Purpose |
+| Method | Endpoint | Access |
 |---|---|---|
-| GET | `/api/services` | Public service search, filters, sort, pagination |
-| GET | `/api/services/:id` | Public approved service details |
-| GET | `/api/services/mine` | Technician's own services |
-| POST | `/api/services` | Technician creates a service |
-| PATCH | `/api/services/:id` | Technician updates own service; approval resets to pending |
-| PATCH | `/api/services/:id/availability` | Technician toggles own service availability |
-| DELETE | `/api/services/:id` | Technician deletes own service |
-| POST | `/api/bookings` | Customer creates a repair request |
-| GET | `/api/bookings/my` | Customer views own bookings |
-| PATCH | `/api/bookings/:id/cancel` | Customer cancels own requested booking |
-| PATCH | `/api/bookings/:id/review` | Customer reviews own paid booking |
-| GET | `/api/bookings/technician` | Technician views own incoming bookings |
-| PATCH | `/api/bookings/:id/status` | Technician advances an owned job |
-| POST | `/api/payments/create-checkout-session` | Customer creates a Stripe Checkout session |
-| GET | `/api/payments/verify?session_id=...` | Customer verifies completed payment |
-| GET | `/api/payments/my` | Customer views own payment history |
-| GET | `/api/admin/users` | Admin lists users |
-| PATCH | `/api/admin/users/:id/role` | Admin changes another user's role |
-| GET | `/api/admin/services` | Admin lists services |
-| PATCH | `/api/admin/services/:id/approval` | Admin approves/rejects a service |
-| GET | `/api/admin/bookings` | Admin lists bookings |
-| GET | `/api/admin/payments` | Admin lists transactions |
-| PATCH | `/api/users/profile` | Authenticated user updates own profile |
-| POST | `/api/payments/webhook` | Stripe webhook endpoint |
+| GET | /api/services | Public |
+| GET | /api/services/:id | Public |
+| GET | /api/services/:id/reviews | Public |
+| GET | /api/services/mine | Technician |
+| POST | /api/services | Technician |
+| PATCH | /api/services/:id | Technician (owner) |
+| PATCH | /api/services/:id/availability | Technician (owner) |
+| DELETE | /api/services/:id | Technician (owner) |
+| POST | /api/bookings | Customer |
+| GET | /api/bookings/my | Customer |
+| PATCH | /api/bookings/:id/cancel | Customer |
+| PATCH | /api/bookings/:id/review | Customer |
+| GET | /api/bookings/technician | Technician |
+| PATCH | /api/bookings/:id/status | Technician |
+| POST | /api/payments/create-checkout-session | Customer |
+| GET | /api/payments/verify | Customer |
+| GET | /api/payments/my | Customer |
+| POST | /api/payments/webhook | Stripe |
+| GET | /api/admin/users | Admin |
+| PATCH | /api/admin/users/:id/role | Admin |
+| GET | /api/admin/services | Admin |
+| PATCH | /api/admin/services/:id/approval | Admin |
+| GET | /api/admin/bookings | Admin |
+| GET | /api/admin/payments | Admin |
+| PATCH | /api/users/profile | Any logged-in user |
+
+## Stripe Test (test mode)
+Test card: `4242 4242 4242 4242`, any future date, any CVC, any ZIP. Declined: `4000 0000 0000 0002`. 3D Secure: `4000 0025 0000 3155`.
+
+**Webhook locally** (Stripe CLI):
+```bash
+stripe login
+stripe listen --forward-to localhost:5000/api/payments/webhook
+```
+Copy the `whsec_...` it prints into `STRIPE_WEBHOOK_SECRET`, restart the server, then pay a booking from the client.
+
+**Webhook on production:**
+1. Stripe Dashboard (test mode) > Developers > Webhooks > Add endpoint
+2. URL: `https://fixmate-server-pi.vercel.app/api/payments/webhook`
+3. Event: `checkout.session.completed`
+4. Put the signing secret in `STRIPE_WEBHOOK_SECRET` on Vercel and redeploy
+
+**Check after paying:**
+- `payments` has one new document with the Stripe transaction ID
+- the booking has `paymentStatus: "paid"`
+- paying again or retrying the webhook doesn't create a second payment
+
+**Quick API checks:**
+```bash
+# booking not completed or already paid -> 400
+curl -X POST $API/api/payments/create-checkout-session \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"bookingId":"BOOKING_ID"}'
+
+# no token -> 401
+curl -X POST $API/api/payments/create-checkout-session
+```
+
+## Tech Stack
+| Area | Technology |
+|---|---|
+| Backend | Node.js, Express 5 |
+| Database | MongoDB (Atlas) with the MongoDB Node.js driver |
+| Authorization | JWT verification with jose (tokens issued by BetterAuth), role-based middlewares |
+| Payment | Stripe Checkout and Webhooks (test mode) |
+| Security | Helmet, CORS allowlist, express-rate-limit |
+| Hosting | Vercel |
+
+## npm Packages
+| Package | Used for |
+|---|---|
+| express | API server |
+| mongodb | Database |
+| stripe | Checkout and webhooks |
+| jose | JWT verification |
+| cors | CORS |
+| helmet | Security headers |
+| express-rate-limit | Rate limiting |
+| dotenv | Env variables |
+| nodemon | Dev auto-restart |
 
 ## Environment Variables
-
-Create a `.env` file in the root of this server project. Do not commit it.
+Create `.env` (never commit it):
 
 ```env
 PORT=5000
 MONGODB_URI=your_mongodb_atlas_connection_string
 DB_NAME=fixmate
-
-# Comma-separated frontend origins allowed by CORS.
 CLIENT_URL=http://localhost:3000
-
-# BetterAuth base URL used to retrieve and verify JWT signing keys.
 AUTH_URL=http://localhost:3000
-
-# Stripe test-mode credentials
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
 ```
+Production: `CLIENT_URL` and `AUTH_URL` are the live client URL. `CLIENT_URL` accepts several comma-separated origins for CORS.
 
-For production:
-- Set `CLIENT_URL` to the deployed frontend origin (or comma-separated allowed origins).
-- Set `AUTH_URL` to the deployed BetterAuth frontend origin.
-- Use the correct MongoDB connection string and database name.
-- Configure the Stripe webhook endpoint as `https://YOUR-BACKEND-DOMAIN/api/payments/webhook` in the Stripe Dashboard (test mode), then set its signing secret as `STRIPE_WEBHOOK_SECRET`.
-- Keep all secrets in the hosting provider's environment configuration.
-
-## Installation and Run
-
-**Requirements:** Node.js (LTS recommended), npm, MongoDB, and the FixMate client configured with BetterAuth.
-
+## Run Locally
 ```bash
-# Install dependencies
 npm install
-
-# Start development server with automatic restart
-npm run dev
-
-# Or start normally
-npm start
+npm run dev     # nodemon
+npm start       # production
 ```
-
-The API runs at [http://localhost:5000](http://localhost:5000) by default.
 
 ## Seed Demo Data
-
-The `seed.js` script creates demo users through the BetterAuth API, assigns their roles, and inserts sample services, bookings, and a payment.
-
-1. Start the client so BetterAuth is available at `AUTH_URL`.
-2. Configure the server `.env` file and make sure both applications use the same MongoDB database.
-3. Run:
-
+Start the client first (the seed uses BetterAuth), then:
 ```bash
 node seed.js --force
 ```
+`--force` deletes existing services, bookings and payments. It adds 14 approved, 2 pending and 1 rejected service, plus bookings in different statuses.
 
-**Warning:** `--force` is required because the script deletes existing `services`, `bookings`, and `payments` records before inserting the demo data. Use it only with a development/demo database.
-
-Demo accounts created by the seed script:
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@fixmate.com` | `Fixmate123` |
-| Technician | `rafiq@fixmate.com` | `Fixmate123` |
-| Technician | `sabbir@fixmate.com` | `Fixmate123` |
-| Customer | `customer@fixmate.com` | `Fixmate123` |
-
-The script seeds 14 approved services, 2 pending services, 1 rejected service, and sample bookings in different states.
-
-## NPM Scripts
-
-| Script | Command | Description |
-|---|---|---|
-| `npm run dev` | `nodemon index.js` | Development server with auto-restart |
-| `npm start` | `node index.js` | Production server |
-| `npm test` | Placeholder | No automated test suite is configured yet |
-
-## Related Repository
-
-The Next.js frontend is maintained in the [FixMate Client repository](YOUR-CLIENT-GITHUB-REPOSITORY-URL).
-
-## Project Structure
-
+## Folder Structure
 ```text
-config/       MongoDB and Stripe configuration
-middleware/   JWT verification and role authorization
-routes/       Service, booking, job, payment, user, and admin endpoints
-utils/        Constants, payment persistence, and URL helpers
-index.js      Express application and route registration
-seed.js       Demo account and sample data seeder
+config/       db and stripe setup
+middleware/   token and role checks
+routes/       services, bookings, jobs, payments, admin, users
+utils/        constants, savePayment, urls
+index.js      app entry
+seed.js       demo data
 ```
-
-## Security Notes
-
-- Never commit `.env` or expose Stripe, MongoDB, or webhook secrets.
-- The API uses the database booking amount when creating Checkout sessions; it does not trust an amount supplied by the client.
-- Payment records are saved idempotently so a success-page verification and webhook retry do not create duplicate payments.
-- Use Stripe test mode for assignment evaluation.
